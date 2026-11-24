@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Drivepal</title><meta name="theme-color" content="#0b0f17"><link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="vendor/leaflet.css"><link rel="stylesheet" href="app.css">
+<script src="vendor/leaflet.js"></script><script src="auth.js"></script></head><body>
+<div class="phone" id="phone">
+<header><div><div class="car" id="carName"></div><div class="sub" id="reg"></div></div>
+<div class="hr"><div class="pill"><span class="dot" id="netdot"></span><span id="nettxt">Online</span></div>
+<button class="iconbtn" id="bellBtn" aria-label="Alerts">🔔<span id="bellBadge" style="display:none"></span></button>
+<button class="iconbtn" id="themeBtn" aria-label="Toggle theme">☾</button><button class="iconbtn" id="setBtn" aria-label="Account and settings">⚙</button></div></header>
+<main id="main"><section class="view on" id="v-home"></section><section class="view" id="v-map"></section><section class="view" id="v-remote"></section><section class="view" id="v-incar"></section><section class="view" id="v-car"></section><section class="view" id="v-alerts"></section></main>
+<nav id="nav"><button data-v="home" class="on"><span class="i">⌂</span>Home</button><button data-v="map"><span class="i">🗺</span>Map</button><button data-v="remote"><span class="i">⚡</span>Remote</button><button data-v="incar"><span class="i">📻</span>In-car</button><button data-v="car"><span class="i">🔧</span>Car</button></nav>
+<div class="mask" id="mask"><div class="sheet" id="sheet"></div></div><div id="toast"></div></div>
+<script src="app.js"></script></body></html>

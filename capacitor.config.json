@@ -1,0 +1,8 @@
+{
+  "appId": "in.rukesh.drivepal",
+  "appName": "Drivepal",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}
