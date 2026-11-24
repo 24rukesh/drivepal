@@ -1,0 +1,35 @@
+name: Build Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm install
+      - run: npx cap add android
+      - run: npx cap sync android
+      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk drivepal-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drivepal-debug-apk
+          path: drivepal-debug.apk
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v0.1.${{ github.run_number }}"
+          gh release create "$TAG" drivepal-debug.apk --repo "${{ github.repository }}" --title "Drivepal $TAG (debug APK)" --notes "Debug build for testing on Android. Demo data only, and the OTP is shown on screen. To install, open this page on your phone, download drivepal-debug.apk, allow installs from your browser, then open it."
