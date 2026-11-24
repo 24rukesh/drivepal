@@ -144,3 +144,53 @@ Tested against `https://tsp-in.suzukiconnect.info` with no credentials:
 **Two ways to get the exact login recipe (either works):**
 1. Install Java + JADX on a machine and decompile `api/Keys` and the auth repository classes.
 2. Capture the real app's login traffic once (phone + mitmproxy), read the exact request.
+
+
+---
+
+## 8. Full decompile (24 Nov 2026): the complete API surface
+
+Method: downloaded a portable JRE 21 + JADX through the browser, decompiled `com.msil.suzukiconnect_generation_2.apk` (1.1.24) fully. The definitive endpoint list comes from the Retrofit service interface (`api/k.java`).
+
+### Architecture facts (now confirmed)
+- **One base URL for everything:** the only `Retrofit.baseUrl(...)` call uses `Keys.apiKey("PROD")` — every path below, including the `remote/...` ones, is relative to it. The DEX string `tsp-in.suzukiconnect.info` plus the live 401 confirm this host.
+- **Keys live in native code:** `api/Keys` methods (`apiKey`, `clientID`, `clientSecret`, `pin`, `sign`, `id`, `key`, `domain`...) are JNI natives in `libnative-lib.so` (arm64). The library decodes values at runtime via a `reveal(vector<uint8_t>)` helper and contains an `encrypt(string)` function. It also exposes root/Frida/emulator detection lists.
+- **Certificate pinning:** the OkHttp client pins the API host using `Keys.pin()` — a MITM capture needs a pinning bypass (or capture before pin checks).
+- **String obfuscation:** inline strings are XOR-encoded with the literal key `SuzukiCipherKey` (verified: the token-refresh byte array decodes to `refresh_token`). Most literals in the DEX are plain, though.
+- **No CORS headers** on the gateway (verified earlier). A browser page cannot call it directly; Android (Capacitor native HTTP) can.
+
+### Login / auth (the real flow)
+| Call | Shape |
+|---|---|
+| `POST api/auth/otp/request` | JSON body: `mobile`, `appVer`, `device_id`, `device_type`, `grant_type` (**must be `"otp"`** — server-verified), `client_id`, `client_secret` |
+| `POST api/auth/otp/validate` | JSON: `grant_type`, `oai`, `otp`, `client_id`, `client_secret`, `device_token` (FCM, optional), `device_id`, `device_type`, `appVer`, `device_model`, `os_version` |
+| `POST api/auth/otp/accountsetup` | OTPRegistrationRequest (sign-up completion) |
+| `POST api/oauth/login/signin` | legacy FormUrlEncoded field-map (token update / signin) |
+| `POST api/validateUserSession` | session check |
+| `GET /api/mpin/sendotp`, `POST /api/mpin/validateotp`, `POST /api/mpin/resetmPin` | mPIN management (sendotp is a **GET**) |
+| `POST /api/profile/validatempin`, `setremotePIN`, `setsecremotePIN` | mPIN / remote PIN |
+| `GET /api/logout`, `GET /api/profile/vehicleList` | session + vehicles |
+| `POST /api/validatemobile`, `/api/login/forgotpassword`, `resetpassword`, `setpassword/`, `api/login/signup` | account (FormUrlEncoded field-maps) |
+
+Live-verified: `grant_type` must be `"otp"`; wrong/missing `client_id` returns `incorrect_client_id`. The actual `client_id`/`client_secret` values are native-decoded and not guessable (14 candidates tried).
+
+### Vehicle data and dashboard
+`POST /api/dashboard` (DashBoardRequest → DashBoardResponse with BatteryHealth, TPMS, UserData), `POST api/dashboard/vehicleHealthStatus`, `POST api/dashboard/getSVTDetailsNew`, `POST api/dashboard/disableTracking`, `POST api/dashboard/disableTrackEvent`, `POST api/v2/profile/getVehicleDetails`, `GET /api/services`.
+
+### Remote operations (all need header `r_key` — likely the remote-PIN-derived key)
+`GET remote/api/remoteapi/{operation}` (generic: any operation), `GET remote/api/remoteapi/tracking_start`, `POST remote/api/remoteapi/ac_control/gen2/performRemoteOps`, `POST remote/api/v2/remoteapi/climate_control/ac_ops`, `GET api/v2/climate_control/getACDetails`, `GET api/climate_control/getACDetailsV1`, climate schedule create/edit/delete/getAll (gasoline + EV), `POST /api/immobilizer/initiateRequest`, `POST api/valet/create_delete_valet`, `GET api/valet/viewvalet`, remote charge: `GET remote/api/v2/remoteapi/charge_control/charge_on`, `GET api/v2/remoteCharge/chargeDetails`, `GET api/remote-charge/getAllSchedules`, charge schedule create/update.
+
+### Trips, driving, location share
+`POST /api/trip/tripHistory`, `tripdetails`, `tripHistoryDownload`, `labelTrip`, `api/trip/mergeTrips`, `api/trip/drivingBehaviour`, `api/trip/driverInsights`, trip planning save/get/delete, send-to-car save/get/delete, `api/locshare/slreq`, `api/locshare/urls`, `api/locshare/drivingHistUrls`, `api/locshare/delslurl`.
+
+### Alerts, geofence, profile, extras
+`POST /api/profile/alertHistory`, `api/v2/profile/getAlertCategoryDetails`, `getAlertSettings`, `updateAlertSettings`; geofence `api/geofence/creategeofence`, `updategeofence`, `viewgeofence`; fuel-expense `api/v2/fuelExpense/list/add/edit/delete`; battery prognostics `api/v2/batteryPrognostic/updateView`; subscription `getPlanDetails`, `initiatePayment`, `getTransactionStatus`, `resubscribe_*`; smart parking endpoints; smartwatch authorize; alexa portal enable/delink/status; wallpapers; leaderboard; data booster; infotainment data control; account delete; contact us; feedback.
+
+### What is still unknown
+1. `client_id` / `client_secret` values (native `libnative-lib.so`, runtime-decoded; also `Keys.pin()` for cert pinning).
+2. Whether `api/auth/otp/validate` bodies are sent as plain JSON or via the `encrypt()` path (both strings exist).
+3. The `r_key` header derivation for remote ops (likely mPIN-derived; verify after login works).
+4. Exact login-session header format (`Authorization: Bearer ...` assumed from `access_token`/`refresh_token` strings and the token interceptor `b`/`m` classes).
+
+### Recommended next step
+Extract the three native values by running the real app once under a local proxy (needs pinning bypass, e.g. Frida objection on an emulator or a rooted phone), OR run the app in an Android emulator and hook `Keys.clientID()` with Frida. Then the whole login → token → data flow can be implemented in Drivepal as-is.
