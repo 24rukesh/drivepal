@@ -3,7 +3,7 @@
 <title>Drivepal</title><meta name="theme-color" content="#0b0f17"><link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="vendor/leaflet.css"><link rel="stylesheet" href="app.css">
-<script src="vendor/leaflet.js"></script><script src="auth.js"></script></head><body>
+<script src="vendor/leaflet.js"></script><script>if(location.hostname==="localhost"&&location.port==="8773")window.DP_API_BASE="/scapi";</script><script src="auth.js"></script></head><body>
 <div class="phone" id="phone">
 <header><div><div class="car" id="carName"></div><div class="sub" id="reg"></div></div>
 <div class="hr"><div class="pill"><span class="dot" id="netdot"></span><span id="nettxt">Online</span></div>

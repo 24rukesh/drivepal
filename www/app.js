@@ -20,14 +20,14 @@ const seed=()=>({
  fuel:[{date:'2026-11-02',odo:7890,litres:24.1,price:107},{date:'2026-11-14',odo:8180,litres:19.4,price:107},{date:'2026-11-22',odo:8390,litres:14.6,price:107}],
  docs:[{n:'Insurance',d:'2027-04-18'},{n:'PUC',d:'2027-06-14'},{n:'RC',d:'2041-06-13'}],
  alerts:[
-  {t:'Tow-away alert',cat:'Security',crit:1,ev:D(260),rx:D(251),ic:'🚨',x:'Car moved with ignition off',p:1},
-  {t:'Overspeed 104 km/h',cat:'Trips',ev:D(60*77+30),rx:D(60*77+28),ic:'⚠',x:'Highway limit 100',p:1},
-  {t:'Trip ended',cat:'Trips',ev:D(180),rx:D(178),ic:'🏁',x:'Office, Gachibowli',p:1},
-  {t:'Geofence: left Home',cat:'Geofence',ev:D(60*5+55),rx:D(60*5+53),ic:'📍',x:'Home zone',p:1},
-  {t:'Low fuel',cat:'Vehicle',ev:D(60*20),rx:D(60*20-4),ic:'⛽',x:'Below 15%',p:1},
-  {t:'AC idling',cat:'Vehicle',ev:D(60*28),rx:D(60*28-9),ic:'❄',x:'AC on, car stationary 12 min',p:1},
-  {t:'Forgot to lock',cat:'Vehicle',ev:D(60*40),rx:D(60*40-3),ic:'🔓',x:'Doors unlocked, parked',p:0},
-  {t:'Seatbelt unfastened',cat:'Vehicle',ev:D(60*52),rx:D(60*52-1),ic:'⛓',x:'While moving',p:0}],
+  {t:'Tow-away alert',cat:'Security',crit:1,ev:D(260),rx:D(251),ic:'ð¨',x:'Car moved with ignition off',p:1},
+  {t:'Overspeed 104 km/h',cat:'Trips',ev:D(60*77+30),rx:D(60*77+28),ic:'â ',x:'Highway limit 100',p:1},
+  {t:'Trip ended',cat:'Trips',ev:D(180),rx:D(178),ic:'ð',x:'Office, Gachibowli',p:1},
+  {t:'Geofence: left Home',cat:'Geofence',ev:D(60*5+55),rx:D(60*5+53),ic:'ð',x:'Home zone',p:1},
+  {t:'Low fuel',cat:'Vehicle',ev:D(60*20),rx:D(60*20-4),ic:'â½',x:'Below 15%',p:1},
+  {t:'AC idling',cat:'Vehicle',ev:D(60*28),rx:D(60*28-9),ic:'â',x:'AC on, car stationary 12 min',p:1},
+  {t:'Forgot to lock',cat:'Vehicle',ev:D(60*40),rx:D(60*40-3),ic:'ð',x:'Doors unlocked, parked',p:0},
+  {t:'Seatbelt unfastened',cat:'Vehicle',ev:D(60*52),rx:D(60*52-1),ic:'â',x:'While moving',p:0}],
  seenAt:D(60*5),cmdLog:[],bannerOff:false
 });
 let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();
@@ -38,7 +38,7 @@ const clock=t=>new Date(t).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-
 const dt=t=>new Date(t).toLocaleDateString('en-IN',{day:'numeric',month:'short'});
 const inr=n=>'Rs '+Math.round(n).toLocaleString('en-IN');
 const litres=()=>S.settings.tank*S.car.fuelPct/100;
-const range=()=>Math.round(litres()*17);
+const range=()=>S.car.rangeKm!=null?S.car.rangeKm:Math.round(litres()*17);
 const chip=p=>`<span class="chip ${p?'parity':'concept'}">${p?'Stock':'Idea'}</span>`;
 const esc=s=>String(s).replace(/"/g,'&quot;');
 let activeView='home';const OPEN={};const UI={geo:true,trail:false};
@@ -62,7 +62,7 @@ function mkMap(el,o={}){
  tl.on('tileerror',()=>el.classList.add('tilefail'));
  return m;
 }
-const carIcon=()=>L.divIcon({html:'<div class="pin">🚗</div>',className:'',iconSize:[34,34],iconAnchor:[17,17]});
+const carIcon=()=>L.divIcon({html:'<div class="pin">ð</div>',className:'',iconSize:[34,34],iconAnchor:[17,17]});
 function drawBig(){
  if(!bigMap)return;if(bigLayer)bigLayer.remove();bigLayer=L.layerGroup().addTo(bigMap);
  L.marker([S.car.lat,S.car.lon],{icon:carIcon()}).addTo(bigLayer);
@@ -126,7 +126,7 @@ function homeV(){
  const c=S.car,L=litres(),last=S.trips[0];
  const sv=S.service[S.service.length-1],dueKm=sv.odo+S.settings.svcKm-c.odo;
  const crit=S.alerts.filter(a=>a.crit).sort((a,b)=>b.ev-a.ev)[0];
- return `<div class="headline">${c.locked?'Parked and locked':'Parked, <span class="warn">doors unlocked</span>'} at ${c.place}.<br><span class="sub2">${Math.round(L)} L left, about ${range()} km. <span class="fresh">as of ${clock(c.seen)} (${ago(c.seen)})</span> <button class="linkbtn" data-refresh="refresh">Refresh</button></span></div>
+ return `<div class="headline">${c.locked?'Parked and locked':'Parked, <span class="warn">doors unlocked</span>'} at ${c.place}.<br><span class="sub2">${Math.round(L)} L left, about ${range()} km. <span class="fresh">as of ${clock(c.seen)} (${ago(c.seen)})</span> <button class="linkbtn" data-live-refresh="1">Refresh</button></span></div>
  ${cmdUI('refresh')}
  ${c.valet?`<div class="banner valet" data-go-view="map">🔑 Valet mode is on. Alerts if the car goes over ${S.valet.speed} km/h or beyond ${S.valet.radius} km.<button class="linkbtn" data-cmd="valet">Turn off</button></div>`:''}
  ${crit&&!S.bannerOff?`<div class="banner"><span data-go-view="alerts">${crit.ic} <b>${crit.t}</b> · ${clock(crit.ev)}. Tap to review.</span><button class="linkbtn" data-dismiss="1" aria-label="Dismiss">✕</button></div>`:''}
@@ -322,6 +322,7 @@ document.addEventListener('toggle',e=>{const d=e.target.closest&&e.target.closes
 document.addEventListener('click',e=>{
  const t=e.target;let b;
  if(b=t.closest('[data-tip]')){const x=document.getElementById('tip-'+b.dataset.tip);if(x)x.hidden=!x.hidden;return}
+ if(t.closest('[data-live-refresh]')){syncLive(false);return}
  if(b=t.closest('[data-refresh]')){const k=b.dataset.refresh;if(k==='refresh'){runCmd('refresh',()=>{});return}cmd[k]={s:'sending'};render();setTimeout(()=>{S.car.seen=now();cmd[k]={s:'done',t:now()};save();render();toast('Status refreshed')},1200);return}
  if(t.closest('[data-dismiss]')){S.bannerOff=true;save();render();return}
  if(b=t.closest('[data-valetset]')){sheet(`<h2>Valet limits</h2><p>Alerts you if the car goes faster than the speed or farther than the radius while valet mode is on. These two limits are my placeholders. Check which options your car's valet mode really offers.</p><div class="form"><div><div class="fresh">Speed alert km/h</div><input id="vs" type="number" value="${S.valet.speed}"></div><div><div class="fresh">Radius km</div><input id="vr" type="number" step="0.5" value="${S.valet.radius}"></div></div><button class="btn" id="saveValet" style="margin-top:10px">Save</button>`);return}
@@ -351,6 +352,82 @@ document.addEventListener('click',e=>{
 });
 huInit();render();
 setInterval(()=>{if(!document.hidden&&!/INPUT|SELECT/.test(document.activeElement.tagName)&&!$('#mask.on'))render()},60000);
+
+/* ---------- live data layer: real Suzuki Connect API ---------- */
+const LIVE = { last: 0, busy: false, err: null };
+
+function apiBase() { return window.DP_API_BASE || DP.APIB; }
+
+async function liveCall(path, body) {
+  const a = DP.auth();
+  if (!a || !a.access_token) throw new Error('Not signed in');
+  const r = await fetch(apiBase() + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + a.access_token },
+    body: JSON.stringify(body || {})
+  });
+  const txt = await r.text();
+  let j = null;
+  try { j = JSON.parse(txt); } catch (e) {}
+  if (r.status === 401) { toast('Session expired, sign in again'); setTimeout(function(){DP.signOut()}, 1200); throw new Error('Session expired'); }
+  if (!j) throw new Error('Bad response (' + r.status + ')');
+  if (j.errors && j.errors.length) throw new Error(j.errors[0].message || 'API error');
+  return j;
+}
+
+function deviceId() {
+  var d = localStorage.getItem('dp_device');
+  if (!d) { d = 'dp-' + Math.random().toString(36).slice(2, 12); localStorage.setItem('dp_device', d); }
+  return d;
+}
+
+/* pull fresh status and write it into the app state */
+async function syncLive(quiet) {
+  if (LIVE.busy) return;
+  var p = DP.profile();
+  if (!p || !p.contractId) return;
+  LIVE.busy = true;
+  try {
+    var j = await liveCall('/api/dashboard', { origin: 'DEVICE', contract_id: String(p.contractId), deviceId: deviceId() });
+    var d = (j.result && j.result.data) || {};
+    var u = (d.DASHBOARD_DATA && d.DASHBOARD_DATA.user_data) || {};
+    var c = S.car;
+    if (u.fuel != null && u.fuel >= 0) c.fuelPct = u.fuel;
+    if (u.driving_range != null) c.rangeKm = u.driving_range;
+    if (u.batt_val) c.battV = u.batt_val;
+    c.locked = String(u.doorlock_st) === '1';
+    c.ignition = String(u.ignition_status) === '1';
+    c.hazard = String(u.hzrd_st) === '1' || u.hazardOnTimer > 0;
+    c.alarm = String(u.alarmOn_st) === '1';
+    c.headlights = String(u.headlight_st) === '1';
+    c.parkingBrake = String(u.prbrk_st) === '1';
+    var g = (u.latestGPS && u.latestGPS[0]) || (u.GPS && u.GPS[0]);
+    if (g && g.latitude) { c.lat = g.latitude; c.lon = g.longitude; }
+    if (d.VRN) S.settings.reg = String(d.VRN).replace(/\.\./g, '');
+    if (u.lut) S.vehicleUpdate = u.lut;
+    S.live = true;
+    c.seen = Date.now();
+    LIVE.last = Date.now();
+    LIVE.err = null;
+    save();
+    render();
+  } catch (e) {
+    LIVE.err = e.message;
+    if (!quiet) toast('Sync failed: ' + e.message);
+  } finally {
+    LIVE.busy = false;
+  }
+}
+
+/* auto sync every 60s while the tab is visible */
+var liveTimer = null;
+function startLive() {
+  if (!DP.auth() || !DP.auth().access_token) return;
+  syncLive(true);
+  if (liveTimer) clearInterval(liveTimer);
+  liveTimer = setInterval(function () { if (!document.hidden) syncLive(true); }, 60000);
+}
+setTimeout(startLive, 250);
 
 }
 if(window.DP&&DP.user)startApp();
