@@ -119,3 +119,28 @@ India flow from these paths: mobile number → OTP (validate) → **mPIN** is th
 5. Same treatment for Smartplay Pro (Bluetooth protocol, needs an HCI capture in the car) later.
 
 **Unverified everywhere:** HTTP methods, body shapes, encryption, header names, base prefix, response envelope.
+
+
+---
+
+## 7. Live probes (24 Nov 2026, after initial write-up)
+
+Tested against `https://tsp-in.suzukiconnect.info` with no credentials:
+
+| Call | Result | Reading |
+|---|---|---|
+| `GET /api/services` | 401 `{"errors":[{"code":111035,"message":"Token not available.","field":"auth_middle"}]}` | Auth middleware gates nearly every path; a token must be obtained first |
+| `POST /api/validatemobile` (JSON or form) | same 401 | Also behind the token middleware |
+| `POST /api/dashboard` | same 401 | Same |
+| `POST /api/mpin/sendotp` | 404 "Cannot POST" (Express HTML) | mPIN service lives on a different route/host, not this gateway |
+| `POST /api/login/validateotp` with `{mobile,otp,client_id,grant_type}` (8 candidate client_ids) | 400 `code:200, field:"incorrect_client_id"` | Same error regardless of body: the client identity is checked before the body — it is almost certainly sent as a header, inside an encrypted payload, or the endpoint expects a different shape |
+| `POST /oauth/token`, `/api/token`, `/api/generateToken`, `/api/authTokens`, and similar | all 404 | The token endpoint is not a guessable path; it lives in another microservice or a prefixed route |
+
+**Conclusions**
+- One gateway (`tsp-in.suzukiconnect.info`) fronts the data API behind a token middleware. Login itself is handled elsewhere (separate auth/mPIN service) and needs the app's real `client_id` and payload format.
+- `access-control-allow-origin` is not set, so a browser page cannot call the API directly (CORS). Drivepal's Android build can use Capacitor's native HTTP (no CORS), and any web use needs a small relay proxy.
+- The app binary contains an `api/Keys` class, `TokenData`/`TokenUpdateResponse` models, and `encryptData`/`secretKey`/`encRequest` strings: encrypted login payloads are likely. Exact values need a full decompile (Java/JADX) or one MITM capture of the real app logging in.
+
+**Two ways to get the exact login recipe (either works):**
+1. Install Java + JADX on a machine and decompile `api/Keys` and the auth repository classes.
+2. Capture the real app's login traffic once (phone + mitmproxy), read the exact request.
