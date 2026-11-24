@@ -194,3 +194,33 @@ Live-verified: `grant_type` must be `"otp"`; wrong/missing `client_id` returns `
 
 ### Recommended next step
 Extract the three native values by running the real app once under a local proxy (needs pinning bypass, e.g. Frida objection on an emulator or a rooted phone), OR run the app in an Android emulator and hook `Keys.clientID()` with Frida. Then the whole login → token → data flow can be implemented in Drivepal as-is.
+
+
+---
+
+## 9. LIVE LOGIN ACHIEVED (24 Nov 2026)
+
+The full authentication flow was executed live against the real backend, using statically decoded credentials.
+
+### How the native values were decoded (no phone, no Frida)
+1. Disassembled `libnative-lib.so` (347 KB) with capstone + pyelftools (wheels fetched via browser, run with local Python 3.13).
+2. `reveal(vector<uint8_t>)` XORs its input with the repeating key **`SuzukiCipherKey`** — the same key the Java layer uses for inline strings.
+3. Each `Keys_*` JNI function builds a byte buffer from `.rodata` (16-byte `ldr q` chunks plus `mov/movk` dwords) and passes it through `reveal`. Capstone prints `adr`/`adrp` targets as **absolute** addresses.
+4. Decoded (PROD flavour):
+   - `clientID` = `8cCjstzZLTG9SmPByrfF`
+   - `clientSecret` = `mrJXukN$3$6fQ!dncdkkdbWd62JVAM`
+   - Confirmed by a successful live login. They ship inside the public APK anyway.
+5. Other decoded values: `atlasGrantType` = `client_credentials`, `domain` = `suzukiconnect.info`, `atlasClientId` = `33OkryzDZsJhZTSP`.
+
+### Verified login flow (live)
+1. `POST api/auth/otp/request` — JSON `{mobile, appVer:"1.1.24", device_id, device_type:"Android", grant_type:"otp", client_id, client_secret}` -> 200 `{result:{message:"OTP sent successfully", data:{OAI:"<jwt>"}}}`. OTP arrives by SMS within seconds.
+2. `POST api/auth/otp/validate` — JSON `{grant_type:"otp", oai:<OAI>, otp:<6 digits>, client_id, client_secret, device_token:"", device_id, device_type:"Android", appVer, device_model, os_version}` -> 200 `{access_token, refresh_token, expiresIn, result:{USER_DETAILS, DASHBOARD_DATA...}}`. OTPs expire fast (a minute or two); expired attempts return code 111013 `otpexpired`.
+3. The login response already contains the full dashboard payload: `result.data.USER_DETAILS` (name, DEFAULT_CONTRACT_ID, VIN, DEVICE_TYPE) and `result.data.DASHBOARD_DATA.user_data` (fuel %, driving_range, battery, lock/door/ignition states, GPS, trip status).
+4. `POST /api/dashboard` with `Authorization: Bearer <access_token>` and JSON `{origin:"DEVICE", contract_id:"<id>", deviceId:"<device id>"}` -> 200 live dashboard. All three body fields are required, else 400.
+
+### Live data observed (2026-11-24 ~14:30 IST, owner's own car)
+fuel 49% | range 276 km | battery 12.9 V | ignition off | doors unlocked | parking brake on | GPS 17.4566, 78.3712 | last vehicle update 10:14 IST.
+
+### Next: wire Drivepal to this flow
+The adapter can now implement real login (mobile + OTP screens replacing the demo) and read real status. Remote commands (`remote/api/remoteapi/*` with `r_key`) are the next capture target.
+
